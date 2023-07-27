@@ -1,1 +1,1 @@
-# movieRecs
+This is a project in which movie data will be obtained by web crawling IMDB's website, and then a recommendation engine will output movie reccomendations based on the data collected. 
