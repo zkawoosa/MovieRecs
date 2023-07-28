@@ -9,6 +9,19 @@ import sys
 import os
 import requests
 import time
+import pdb
+
+# For a given url, isolate the url up until the title id followed by slash
+# https://www.imdb.com/title/tt15398776/fullcredits/cast?ref_=tt_ov_st_sm
+def isolate_title(url):
+    # Split by slashes first
+    split = re.split("/", url)
+    # Next check if trailing ?, if so split
+    reformed_url = f"{split[0]}/{split[1]}/{split[2]}/{split[3]}/{split[4]}/"
+    if "?" in reformed_url:
+        split_two = re.split("\?", reformed_url)
+        return f"{split_two[0]}/"
+    return reformed_url
 
 # Remove http://, https://, trailing slashes
 def url_strip(url):
@@ -17,13 +30,6 @@ def url_strip(url):
     # Removing trailing backslashes
     stripped_url = re.compile("\/$").sub("", stripped_url)
     return stripped_url
-
-# Checks if the URL is in set of identified urls
-def url_identified(url, links_identified):
-    if url_strip(url) in links_identified:
-        return True
-    else:
-        return False
 
 # Strip url, check if stripped URL is in domain
 def url_validate(url, accepted_domains):
@@ -49,7 +55,8 @@ def main():
     ACCEPTED_DOMAINS = ['imdb.com/title/']
 
     # Set of valid links that lead to movie title pages
-    links_identified = set(seedUrl)
+    links_identified = set()
+    links_identified.add(seedUrl)
     # Queue from which links are pulled for each request
     links_queue = [seedUrl]
 
@@ -79,15 +86,13 @@ def main():
                 if with_domain:
                     # Check domain
                     if url_validate(with_domain, ACCEPTED_DOMAINS):
+                        isolated_title = isolate_title(with_domain)
                         # Check if visited
-                        if not url_identified(with_domain, links_identified):
-                            # Adding stripped version of link to identified set
-                            cleaned_link = with_domain
-                            links_identified.add(cleaned_link)
+                        if not isolated_title in links_identified:
+                            links_identified.add(isolated_title)
                             # Adding link to be opened
-                            links_queue.append(cleaned_link)
-                            
-                            print(f"Added {cleaned_link} to queue.")
+                            links_queue.append(isolated_title)
+                            print(f"Added {isolated_title} to queue. {len(links_identified)}")
 
                         # Breaking out of loop once we've identified a variable amount of links
                         if len(links_identified) == 1000:
