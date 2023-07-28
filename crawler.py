@@ -16,13 +16,35 @@ Header_Info = {
     'Content-Type': 'text/html'
 }
 
+class Movie:
+    def __init__(self, link):
+        self.movie_link = link
+        # Contains a set of unique actors, writers, directors, etc for a movie
+        self.person_set = set()
+
+    def add_person(self, link):
+        self.person_set.add(link)
+
+
 # For a given url, isolate the url up until the title id followed by slash
-# I.e https://www.imdb.com/title/tt15398776/fullcredits/cast?ref_=tt_ov_st_sm 
-# becomes https://www.imdb.com/title/tt15398776/
 def isolate_title(url):
     # Split by slashes first
     split = re.split("/", url)
     reformed_url = f"{split[0]}/{split[1]}/{split[2]}/{split[3]}/{split[4]}/"
+
+    # Next check if trailing ?, if so split
+    if "?" in reformed_url:
+        split_two = re.split("\?", reformed_url)
+        return f"{split_two[0]}/"
+
+    return reformed_url
+
+# For a given url, isolate the url up until the name id followed by slash
+def isolate_name(url):
+    #breakpoint()
+    # Split by slashes first
+    split = re.split("/", url)
+    reformed_url = f"/{split[1]}/{split[2]}/"
 
     # Next check if trailing ?, if so split
     if "?" in reformed_url:
@@ -70,7 +92,7 @@ def main():
         parent_link = links_queue.pop(0)
         try:
             # Fetching HTML from webpage at parent_link
-            current_page = only_session.get(parent_link, timeout=1, headers=Header_Info)
+            current_page = only_session.get(parent_link, timeout=3, headers=Header_Info)
             current_soup = bs(current_page.content, features="html.parser")
             
             # Take discovered links and check validity
@@ -105,10 +127,31 @@ def main():
         # Sleep keeps imdb from getting upset
         time.sleep(randint(1,3))
 
+    # List of Movie objects
+    movie_list = []
+
+    for movie_link in links_identified:
+        current_page = only_session.get(parent_link, timeout=3, headers=Header_Info)
+        current_soup = bs(current_page.content, features="html.parser")
+        movie_obj = Movie(movie_link)
+        for link_obj in current_soup.find_all('a'):
+            link = link_obj.get('href')
+            stripped = url_strip(link)
+            if stripped.startswith("/name/"):
+                movie_obj.add_person(f"https://www.imdb.com{isolate_name(stripped)}")
+        movie_list.append(movie_obj)
+
+
     # Writing to output file
     with open('crawler.output', 'w') as output:
-        for link in links_identified:
-            output.write(link + '\n')
+        for movie in movie_list:
+            print(movie.movie_link)
+            output.write(f"{movie.movie_link} \n")
+            count = 1
+            for name_link in movie.person_set:
+                output.write(f"{count}.{name_link} \n")
+                count += 1
+
 
 if __name__ == '__main__':
     main()
