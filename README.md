@@ -1,1 +1,1 @@
-This is a project in which movie data will be obtained by web crawling IMDB's website, and then a recommendation engine will output movie reccomendations based on the data collected. 
+This application will allow a user to input a link to a movie and a number X (for efficiency purposes it is recommended to use X <= 10), and in return they will be given the top X movies related to this movie, sorted by relevance using a customized metric.
