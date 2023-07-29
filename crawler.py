@@ -19,12 +19,19 @@ Header_Info = {
 class Movie:
     def __init__(self, link):
         self.movie_link = link
+
         # Contains a set of unique actors, writers, directors, etc for a movie
         self.person_set = set()
 
+        # Predefine as -1 to detect if ratings are not found
+        self.metascore = -1
+
+        self.imdb_rating = -1
+
+        # self.genres = set()
+
     def add_person(self, link):
         self.person_set.add(link)
-
 
 # For a given url, isolate the url up until the title id followed by slash
 def isolate_title(url):
@@ -118,8 +125,6 @@ def main():
                         links_queue.append(isolated_title)
                         print(f"Added {isolated_title} to queue. {len(links_identified)}")
 
-                    
-
         except requests.exceptions.RequestException as e:
             print(f"Error for fetching following link: {parent_link}")
             print(f"Error Message: {e}")
@@ -130,17 +135,45 @@ def main():
     # List of Movie objects
     movie_list = []
 
+    # Iterate over movies, extract class members
     for movie_link in links_identified:
-        current_page = only_session.get(parent_link, timeout=3, headers=Header_Info)
-        current_soup = bs(current_page.content, features="html.parser")
-        movie_obj = Movie(movie_link)
-        for link_obj in current_soup.find_all('a'):
-            link = link_obj.get('href')
-            stripped = url_strip(link)
-            if stripped.startswith("/name/"):
-                movie_obj.add_person(f"https://www.imdb.com{isolate_name(stripped)}")
-        movie_list.append(movie_obj)
+        try:
+            current_page = only_session.get(movie_link, timeout=3, headers=Header_Info)
+            current_soup = bs(current_page.content, features="html.parser")    
+            
+            # Create movie obj
+            movie_obj = Movie(movie_link)
 
+            # Find meta score
+            metascore_obj = current_soup.find("span", class_="score-meta")
+            metascore = metascore_obj.get_text()
+            movie_obj.metascore = metascore
+
+            # Find IMDB rating
+            imdb_obj = current_soup.find("span", class_="sc-bde20123-1 iZlgcd")
+            imdb_rating = imdb_obj.get_text()
+            movie_obj.imdb_rating = imdb_rating
+
+            # Find Genres
+            # breakpoint()
+            # genre_divs = current_soup.find("div", attrs={'datatest-id':'genres'})
+            # for div in genre_divs.find_all("span", class_='ipc-chip__text'):
+            #     print(div)
+
+
+            # Take all links, narrow down to links for "names"
+            for link_obj in current_soup.find_all('a'):
+                link = link_obj.get('href')
+                stripped = url_strip(link)
+
+                # Check if link format is right before adding
+                if stripped.startswith("/name/"):
+                    movie_obj.add_person(f"https://www.imdb.com{isolate_name(stripped)}")
+            
+            # Add movie obj to list
+            movie_list.append(movie_obj)
+        except Exception as e:
+            print(f"Error Message: {e}")
 
     # Writing to output file
     with open('crawler.output', 'w') as output:
