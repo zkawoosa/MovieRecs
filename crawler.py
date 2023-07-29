@@ -83,6 +83,7 @@ def url_validate(url, accepted_domains):
     return False
 
 def main():
+    print("Please wait while we collect and examine the data...")
     # Need to define starting point for crawl
     seedUrl = "https://www.imdb.com/title/tt15398776/"
 
@@ -126,14 +127,15 @@ def main():
 
                     # Check if visited
                     if not isolated_title in links_identified:
-                        # Identify link, add to queue of pages to check
+                        # Identify link, add to queue of pages to download
                         links_identified.add(isolated_title)
                         links_queue.append(isolated_title)
-                        print(f"Added {isolated_title} to queue. {len(links_identified)}")
+                        #print(f"Added {isolated_title} to queue. {len(links_identified)}")
 
         except requests.exceptions.RequestException as e:
-            print(f"Error for fetching following link: {parent_link}")
-            print(f"Error Message: {e}")
+            continue
+            #print(f"Error for fetching following link: {parent_link}")
+            #print(f"Error Message: {e}")
 
         # Sleep keeps imdb from getting upset
         time.sleep(randint(1,3))
@@ -156,7 +158,8 @@ def main():
                 movie_title = title_obj.get_text()
                 movie_obj.title = movie_title
             except Exception as e:
-                print(f"Movie title error: {e}")
+                continue
+                #print(f"Movie title error: {e}")
 
             try:
                 # Find meta score
@@ -164,7 +167,8 @@ def main():
                 metascore = metascore_obj.get_text()
                 movie_obj.metascore = metascore
             except Exception as e:
-                print(f"Metascore error: {e}")
+                continue
+                #print(f"Metascore error: {e}")
 
             try:
                 # Find IMDB rating
@@ -172,7 +176,8 @@ def main():
                 imdb_rating = imdb_obj.get_text()
                 movie_obj.imdb_rating = imdb_rating
             except Exception as e:
-                print(f"IMDB rating error: {e}")
+                continue
+                #print(f"IMDB rating error: {e}")
 
             # Find Genres
             # breakpoint()
@@ -190,14 +195,16 @@ def main():
                     if stripped.startswith("/name/"):
                         movie_obj.add_person(f"https://www.imdb.com{isolate_name(stripped)}")
                 except Exception as e:
-                    print(f"Person error: {e}")
+                    continue
+                    #print(f"Person error: {e}")
             
             # Add movie obj to list
-            print(f"Added {movie_title} to movie list.")
+            #print(f"Added {movie_title} to movie list.")
             movie_dict[movie_link] = movie_obj
 
         except requests.exceptions.RequestException as e:
-            print(f"Error Message: {e}")
+            continue
+            #print(f"Error Message: {e}")
 
     # Map titles to scores
     score_dict = {} 
@@ -216,19 +223,17 @@ def main():
             score = (float(value.imdb_rating)/10) + (float(value.metascore)/10) + (jaccard_similarity * average_length) 
             score_dict[value.title] = score
 
-    # Sort score dict, take top X results
+    # Sort score dict, take top X results, print to user
     outputList = []
     for key, value in score_dict.items():
         outputList.append((key, value))
     outputList.sort(key = lambda x: x[1], reverse=True)
 
-    # Writing to output file
-    with open('crawler.output', 'w') as output:
-        count = 1
-        output.write("Results are in descending order, showing the movie title and the associated custom score. \n")
-        while count <= desired_results:
-            output.write(f"{count}. {outputList[count][0]} : {outputList[count][1]} \n")
-            count += 1
+    count = 1
+    print(f"As requested, your top {desired_results} movies are listed in descending order along with their associated custom score. \n")
+    while count <= desired_results:
+        print(f"{count}. {outputList[count][0]} : {outputList[count][1]} \n")
+        count += 1
 
 if __name__ == '__main__':
     main()
