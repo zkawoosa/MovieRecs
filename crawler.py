@@ -9,15 +9,6 @@ import requests
 import time
 import pdb
 
-# Collect 10x + 1, where x is the number of results desired by the user
-desired_results = int(sys.argv[1])
-Link_Limit = desired_results * 10 + 1
-Header_Info = {
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36',
-    'referer': 'https://...', 
-    'Content-Type': 'text/html'
-}
-
 class Movie:
     def __init__(self, link):
         self.movie_link = link
@@ -29,7 +20,6 @@ class Movie:
 
         # Predefine as -1 to penalize if ratings are not found
         self.metascore = -1
-
         self.imdb_rating = -1
 
         # self.genres = set()
@@ -52,7 +42,6 @@ def isolate_title(url):
 
 # For a given url, isolate the url up until the name id followed by slash
 def isolate_name(url):
-    #breakpoint()
     # Split by slashes first
     split = re.split("/", url)
     reformed_url = f"/{split[1]}/{split[2]}/"
@@ -83,21 +72,33 @@ def url_validate(url, accepted_domains):
     return False
 
 def main():
-    print("Please wait while we collect and examine the data...")
-    # Need to define starting point for crawl
-    seedUrl = "https://www.imdb.com/title/tt15398776/"
+    # Collect 10x + 1, where x is the number of results desired by the user
+    desired_results = int(input("Please enter in the number of results you would like to see, e.g 3: "))
+    user_url = input("Please enter in the link of an IMDB movie page, e.g https://www.imdb.com/title/tt0073195/?ref_=chtmvm_t_100: ")
+    Link_Limit = desired_results * 10 + 1
+    Header_Info = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36',
+        'referer': 'https://...', 
+        'Content-Type': 'text/html'
+    }
 
-    # Make it so that people can input any imdb link and then you isolate the title
+    print("Please wait while we collect and examine the data...")
+
+    # Isolate the title from the user's link
+    stripped = url_strip(user_url)
+    with_domain = "https://www." + stripped 
+    seed_url = isolate_title(with_domain)
+
 
     # Only accept urls that are in certain domains
     ACCEPTED_DOMAINS = ['imdb.com/title/']
 
     # Set of valid links that lead to movie title pages
     links_identified = set()
-    links_identified.add(seedUrl)
+    links_identified.add(seed_url)
 
     # Queue from which links are pulled for each request
-    links_queue = [seedUrl]
+    links_queue = [seed_url]
 
     only_session = requests.Session()
 
@@ -180,7 +181,6 @@ def main():
                 #print(f"IMDB rating error: {e}")
 
             # Find Genres
-            # breakpoint()
             # genre_divs = current_soup.find("div", attrs={'datatest-id':'genres'})
             # for div in genre_divs.find_all("span", class_='ipc-chip__text'):
             #     print(div)
@@ -212,12 +212,12 @@ def main():
     # Value is movie object
     for value in movie_dict.values():
         # Don't include the originally provided movie
-        if value == movie_dict[seedUrl]:
+        if value == movie_dict[seed_url]:
             continue
         else:
             # IMDB/10 + metacritic/100 + jaccard similarity * average length of sets
             set_a = value.person_set
-            set_b = movie_dict[seedUrl].person_set
+            set_b = movie_dict[seed_url].person_set
             average_length = (len(set_a) + len(set_b))/2
             jaccard_similarity = len(set_a.intersection(set_b))/len(set_a.union(set_b))
             score = (float(value.imdb_rating)/10) + (float(value.metascore)/10) + (jaccard_similarity * average_length) 
