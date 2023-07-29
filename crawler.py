@@ -20,6 +20,8 @@ class Movie:
     def __init__(self, link):
         self.movie_link = link
 
+        self.title = ""
+
         # Contains a set of unique actors, writers, directors, etc for a movie
         self.person_set = set()
 
@@ -81,6 +83,8 @@ def url_validate(url, accepted_domains):
 def main():
     # Need to define starting point for crawl
     seedUrl = "https://www.imdb.com/title/tt15398776/"
+
+    # Make it so that people can input any imdb link and then you isolate the title
 
     # Only accept urls that are in certain domains
     ACCEPTED_DOMAINS = ['imdb.com/title/']
@@ -144,6 +148,11 @@ def main():
             # Create movie obj
             movie_obj = Movie(movie_link)
 
+            # Find movie title
+            title_obj = current_soup.find("span", class_="sc-afe43def-1 fDTGTb")
+            movie_title = title_obj.get_text()
+            movie_obj.title = movie_title
+
             # Find meta score
             metascore_obj = current_soup.find("span", class_="score-meta")
             metascore = metascore_obj.get_text()
@@ -171,19 +180,19 @@ def main():
                     movie_obj.add_person(f"https://www.imdb.com{isolate_name(stripped)}")
             
             # Add movie obj to list
+            print(f"Added {movie_title} to movie list.")
             movie_list.append(movie_obj)
+
         except Exception as e:
             print(f"Error Message: {e}")
 
     # Writing to output file
     with open('crawler.output', 'w') as output:
         for movie in movie_list:
-            print(movie.movie_link)
-            output.write(f"{movie.movie_link} \n")
-            count = 1
-            for name_link in movie.person_set:
-                output.write(f"{count}.{name_link} \n")
-                count += 1
+            output.write(f"{movie.title} {movie.movie_link} {movie.metascore} {movie.imdb_rating} ")
+            for person_id in movie.person_set:
+                output.write(f"{person_id} ")
+            output.write("\n")
 
 
 if __name__ == '__main__':
