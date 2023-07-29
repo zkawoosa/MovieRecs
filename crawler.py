@@ -9,7 +9,9 @@ import requests
 import time
 import pdb
 
-Link_Limit = int(sys.argv[1]) * 10
+# Collect 10x + 1, where x is the number of results desired by the user
+desired_results = int(sys.argv[1])
+Link_Limit = desired_results * 10 + 1
 Header_Info = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36',
     'referer': 'https://...', 
@@ -25,7 +27,7 @@ class Movie:
         # Contains a set of unique actors, writers, directors, etc for a movie
         self.person_set = set()
 
-        # Predefine as -1 to detect if ratings are not found
+        # Predefine as -1 to penalize if ratings are not found
         self.metascore = -1
 
         self.imdb_rating = -1
@@ -136,8 +138,8 @@ def main():
         # Sleep keeps imdb from getting upset
         time.sleep(randint(1,3))
 
-    # List of Movie objects
-    movie_list = []
+    # Map movie link to Movie objects
+    movie_dict = {}
 
     # Iterate over movies, extract class members
     for movie_link in links_identified:
@@ -148,20 +150,29 @@ def main():
             # Create movie obj
             movie_obj = Movie(movie_link)
 
-            # Find movie title
-            title_obj = current_soup.find("span", class_="sc-afe43def-1 fDTGTb")
-            movie_title = title_obj.get_text()
-            movie_obj.title = movie_title
+            try:
+                # Find movie title
+                title_obj = current_soup.find("span", class_="sc-afe43def-1 fDTGTb")
+                movie_title = title_obj.get_text()
+                movie_obj.title = movie_title
+            except Exception as e:
+                print(f"Movie title error: {e}")
 
-            # Find meta score
-            metascore_obj = current_soup.find("span", class_="score-meta")
-            metascore = metascore_obj.get_text()
-            movie_obj.metascore = metascore
+            try:
+                # Find meta score
+                metascore_obj = current_soup.find("span", class_="score-meta")
+                metascore = metascore_obj.get_text()
+                movie_obj.metascore = metascore
+            except Exception as e:
+                print(f"Metascore error: {e}")
 
-            # Find IMDB rating
-            imdb_obj = current_soup.find("span", class_="sc-bde20123-1 iZlgcd")
-            imdb_rating = imdb_obj.get_text()
-            movie_obj.imdb_rating = imdb_rating
+            try:
+                # Find IMDB rating
+                imdb_obj = current_soup.find("span", class_="sc-bde20123-1 iZlgcd")
+                imdb_rating = imdb_obj.get_text()
+                movie_obj.imdb_rating = imdb_rating
+            except Exception as e:
+                print(f"IMDB rating error: {e}")
 
             # Find Genres
             # breakpoint()
@@ -169,31 +180,55 @@ def main():
             # for div in genre_divs.find_all("span", class_='ipc-chip__text'):
             #     print(div)
 
-
             # Take all links, narrow down to links for "names"
             for link_obj in current_soup.find_all('a'):
-                link = link_obj.get('href')
-                stripped = url_strip(link)
+                try:
+                    link = link_obj.get('href')
+                    stripped = url_strip(link)
 
-                # Check if link format is right before adding
-                if stripped.startswith("/name/"):
-                    movie_obj.add_person(f"https://www.imdb.com{isolate_name(stripped)}")
+                    # Check if link format is right before adding
+                    if stripped.startswith("/name/"):
+                        movie_obj.add_person(f"https://www.imdb.com{isolate_name(stripped)}")
+                except Exception as e:
+                    print(f"Person error: {e}")
             
             # Add movie obj to list
             print(f"Added {movie_title} to movie list.")
-            movie_list.append(movie_obj)
+            movie_dict[movie_link] = movie_obj
 
-        except Exception as e:
+        except requests.exceptions.RequestException as e:
             print(f"Error Message: {e}")
+
+    # Map titles to scores
+    score_dict = {} 
+
+    # Value is movie object
+    for value in movie_dict.values():
+        # Don't include the originally provided movie
+        if value == movie_dict[seedUrl]:
+            continue
+        else:
+            # IMDB/10 + metacritic/100 + jaccard similarity * average length of sets
+            set_a = value.person_set
+            set_b = movie_dict[seedUrl].person_set
+            average_length = (len(set_a) + len(set_b))/2
+            jaccard_similarity = len(set_a.intersection(set_b))/len(set_a.union(set_b))
+            score = (float(value.imdb_rating)/10) + (float(value.metascore)/10) + (jaccard_similarity * average_length) 
+            score_dict[value.title] = score
+
+    # Sort score dict, take top X results
+    outputList = []
+    for key, value in score_dict.items():
+        outputList.append((key, value))
+    outputList.sort(key = lambda x: x[1], reverse=True)
 
     # Writing to output file
     with open('crawler.output', 'w') as output:
-        for movie in movie_list:
-            output.write(f"{movie.title} {movie.movie_link} {movie.metascore} {movie.imdb_rating} ")
-            for person_id in movie.person_set:
-                output.write(f"{person_id} ")
-            output.write("\n")
-
+        count = 1
+        output.write("Results are in descending order, showing the movie title and the associated custom score. \n")
+        while count <= desired_results:
+            output.write(f"{count}. {outputList[count][0]} : {outputList[count][1]} \n")
+            count += 1
 
 if __name__ == '__main__':
     main()
